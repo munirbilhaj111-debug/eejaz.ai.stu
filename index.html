@@ -1462,62 +1462,6 @@
             إلى اللقاء 👋</p>
     </div>
 
-    <!-- Splash Logic & Dependencies -->
-    <script>
-        document.addEventListener('DOMContentLoaded', () => {
-            const splash = document.getElementById('splash-screen');
-            const auth = document.getElementById('authContainer');
-
-            // --- PERSISTENCE CHECK ---
-            const isPrivacyAccepted = localStorage.getItem('privacy_accepted');
-            const hasSession = localStorage.getItem('student_session');
-
-            if (isPrivacyAccepted || hasSession) {
-                // Instantly hide splash and skip to appropriate view
-                if (splash) splash.style.display = 'none';
-                if (!hasSession && auth) {
-                    auth.style.opacity = '1';
-                }
-                return; // Stop the timeline
-            }
-
-            // Simple Splash Timeout if no persistence
-            setTimeout(() => {
-                if (splash) {
-                    splash.style.opacity = '0';
-                    splash.style.transition = 'opacity 0.8s ease';
-                    setTimeout(() => {
-                        splash.style.display = 'none';
-                        const priv = document.getElementById('privacyScreen');
-                        if (priv) {
-                            priv.style.display = 'flex';
-                            setTimeout(() => priv.classList.add('active'), 50);
-                        } else if (auth) {
-                            auth.style.opacity = '1';
-                        }
-                    }, 800);
-                }
-            }, 3000);
-        });
-
-        function acceptPrivacy() {
-            localStorage.setItem('privacy_accepted', 'true');
-            const priv = document.getElementById('privacyScreen');
-            const auth = document.getElementById('authContainer');
-            if (priv) priv.style.opacity = '0';
-            setTimeout(() => {
-                if (priv) priv.style.display = 'none';
-                if (auth) auth.style.opacity = '1';
-            }, 600);
-        }
-
-        window.onerror = function (msg, url, line, col, error) {
-            // Ignore ResizeObserver loop limit exceeded
-            if (msg && msg.includes('ResizeObserver')) return false;
-            console.error("Error: " + msg + "\nLine: " + line);
-            return false;
-        };
-    </script>
     <!-- Scanner Modal -->
     <div id="scannerModal">
         <button class="scanner-close" onclick="stopScanner()">إغلاق</button>

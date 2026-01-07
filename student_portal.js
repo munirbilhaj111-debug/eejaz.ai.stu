@@ -25,21 +25,31 @@ async function initApp() {
     try {
         console.log('🔄 Checking dependencies...');
         
-        if (!window.supabase) {
-            throw new Error('مكتبة Supabase غير محملة. تأكد من اتصالك بالإنترنت.');
+        // Wait for db-ready if db is not ready yet
+        if (!window.db || !window.db.isReady) {
+            console.log('⏳ Waiting for database to be ready...');
+            await new Promise(resolve => {
+                window.addEventListener('db-ready', resolve, { once: true });
+                // Safety timeout
+                setTimeout(resolve, 3000);
+            });
         }
 
         if (!window.EEJAZ_CONFIG) {
-            throw new Error('ملف الإعدادات (config.js) غير مفقود أو لم يتم تحميله بشكل صحيح.');
+            throw new Error('ملف الإعدادات (config.js) مفقود أو لم يتم تحميله بشكل صحيح.');
         }
 
         if (!window.authSystem) {
-            throw new Error('نظام المصادقة (auth.js) غير مفقود.');
+            throw new Error('نظام المصادقة (auth.js) مفقود.');
         }
 
-        // Use global db if available, else init supabaseClient
-        supabaseClient = window.db ? window.db.supabase : window.supabase.createClient(window.EEJAZ_CONFIG.supabaseUrl, window.EEJAZ_CONFIG.supabaseKey);
+        // Always use global db supabase client
+        supabaseClient = window.db ? window.db.supabase : (window.supabase ? window.supabase.createClient(window.EEJAZ_CONFIG.supabaseUrl, window.EEJAZ_CONFIG.supabaseKey) : null);
         
+        if (!supabaseClient) {
+            throw new Error('فشل إنشاء اتصال بقاعدة البيانات السحابية.');
+        }
+
         console.log('✅ Supabase Connected Successfully');
 
         // Restore Session if exists
@@ -50,7 +60,10 @@ async function initApp() {
             show('dashboardContainer');
             const mobileNav = get('mobileNav');
             if (mobileNav) mobileNav.classList.add('active');
+            
+            // Initial data fetch
             fetchAnnouncements();
+            loadSchedule();
         }
 
         // Populate institutes list
@@ -58,7 +71,9 @@ async function initApp() {
 
     } catch (e) {
         console.error('Initialization Failed:', e);
-        alert('فشل تهيئة النظام: ' + e.message);
+        // Show error on UI if possible
+        const loginBtn = get('loginBtn');
+        if (loginBtn) loginBtn.innerHTML = '❌ فشل الاتصال';
     }
 }
 

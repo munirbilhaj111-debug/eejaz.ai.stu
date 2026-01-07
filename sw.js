@@ -1,32 +1,21 @@
 // Service Worker لـ PWA
 
-const CACHE_NAME = 'eejaz-pwa-v3';
-const STATIC_CACHE = 'eejaz-static-v3';
-const DYNAMIC_CACHE = 'eejaz-dynamic-v3';
+const CACHE_NAME = 'eejaz-pwa-v4';
+const STATIC_CACHE = 'eejaz-static-v4';
+const DYNAMIC_CACHE = 'eejaz-dynamic-v4';
 
-// الملفات الثابتة للتخزين المؤقت
+// الملفات الثابتة للتخزين المؤقت (تم تبسيطها)
 const STATIC_ASSETS = [
     './',
     'index.html',
     'manifest.json',
     'css/styles.css',
     'css/ui-enhancements.css',
-    'js/app.js',
+    'js/config.js',
     'js/student_portal.js',
     'js/database.js',
     'js/auth.js',
-    'js/academic.js',
-    'js/saas-manager.js',
-    'js/cache-manager.js',
-    'js/lazy-loader.js',
-    'js/validation-system.js',
-    'js/advanced-charts.js',
-    'js/pdf-reports.js',
-    'js/real-time-notifications.js',
-    'js/pwa-manager.js',
-    'js/institute-isolation-manager.js',
-    'js/theme-manager.js',
-    'js/notifications.js'
+    'js/pwa-manager.js'
 ];
 
 // تثبيت Service Worker
