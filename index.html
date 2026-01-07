@@ -1493,19 +1493,33 @@
                             let attempts = 0;
                             const check = setInterval(() => {
                                 attempts++;
-                                if ((window.EEJAZ_CONFIG && window.supabase) || attempts > 10) {
+                                if ((window.EEJAZ_CONFIG && window.supabase) || attempts > 20) {
                                     clearInterval(check);
                                     resolve();
                                 }
-                            }, 100);
+                            }, 200);
                         });
                     }
 
                     const config = window.EEJAZ_CONFIG;
-                    if (!config || !window.supabase) return;
+                    if (!config || !window.supabase) {
+                        console.error('❌ Supabase library not loaded');
+                        return;
+                    }
 
                     this.supabase = window.supabase.createClient(config.supabaseUrl, config.supabaseKey);
+                    
+                    // اختبار الاتصال فوراً
+                    const { error } = await this.supabase.from('institutes').select('count', { count: 'exact', head: true });
+                    if (error) {
+                        if (error.message.includes('FetchError') || error.code === 'PGRST301') {
+                            alert('⚠️ خطأ في الاتصال بالسحابة: قد يكون المشروع متوقفاً (Paused) أو هناك مشكلة في الإنترنت.');
+                        }
+                        throw error;
+                    }
+
                     this.isReady = true;
+                    console.log('✅ Database Connected Successfully');
                     window.dispatchEvent(new CustomEvent('db-ready'));
                 } catch (err) {
                     console.error('❌ Database Initialization Failed:', err);
@@ -1513,7 +1527,7 @@
             }
 
             async from(table) {
-                if (!this.supabase) throw new Error('Database not initialized');
+                if (!this.supabase) throw new Error('قاعدة البيانات غير متصلة. يرجى تحديث الصفحة.');
                 return this.supabase.from(table);
             }
         }
