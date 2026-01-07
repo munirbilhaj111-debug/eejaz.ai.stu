@@ -1791,8 +1791,20 @@
         async function loadSchedule() {
             const container = get('scheduleContent');
             try {
-                const { data, error } = await supabaseClient.from('schedules').select('*').eq('institute_id', currentStudent.institute_id).eq('semester_index', currentStudent.placement_semester_index || 1).limit(1);
-                if (error || !data[0]) { container.innerHTML = '<p class="label" style="text-align:center;">الجدول غير متوفر</p>'; return; }
+                // محاولة جلب البيانات من جدول 'schedules' أو 'schedule' في حال الخطأ 404
+                let response = await supabaseClient.from('schedules').select('*').eq('institute_id', currentStudent.institute_id).eq('semester_index', currentStudent.placement_semester_index || 1).limit(1);
+                
+                if (response.error && response.status === 404) {
+                    console.warn('⚠️ Table "schedules" not found, trying "schedule"...');
+                    response = await supabaseClient.from('schedule').select('*').eq('institute_id', currentStudent.institute_id).eq('semester_index', currentStudent.placement_semester_index || 1).limit(1);
+                }
+
+                const { data, error } = response;
+                if (error || !data || !data[0]) { 
+                    console.log('ℹ️ Schedule Info:', error || 'No data found');
+                    container.innerHTML = '<p class="label" style="text-align:center;">الجدول غير متوفر حالياً</p>'; 
+                    return; 
+                }
                 const schedule = typeof data[0].json_data === 'string' ? JSON.parse(data[0].json_data) : data[0].json_data;
                 const daysOrder = ['Saturday', 'Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday'];
                 const daysArabic = { 'Saturday': 'السبت', 'Sunday': 'الأحد', 'Monday': 'الاثنين', 'Tuesday': 'الثلاثاء', 'Wednesday': 'الأربعاء', 'Thursday': 'الخميس' };
