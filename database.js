@@ -30,19 +30,24 @@ class DatabaseManager {
         try {
             console.log('☁️ Initializing Cloud Database Connection...');
             
-            // Wait for config to be available
-            if (!window.EEJAZ_CONFIG) {
-                console.warn('Waiting for config...');
-                await new Promise(resolve => setTimeout(resolve, 500));
+            // Wait for config and Supabase to be available
+            if (!window.EEJAZ_CONFIG || !window.supabase) {
+                console.warn('Waiting for dependencies...');
+                await new Promise(resolve => {
+                    let attempts = 0;
+                    const check = setInterval(() => {
+                        attempts++;
+                        if ((window.EEJAZ_CONFIG && window.supabase) || attempts > 10) {
+                            clearInterval(check);
+                            resolve();
+                        }
+                    }, 100);
+                });
             }
 
             const config = window.EEJAZ_CONFIG;
             if (!config) throw new Error('Configuration not found!');
-
-            // Initialize Supabase Client
-            if (!window.supabase) {
-                await this.loadSupabaseScript();
-            }
+            if (!window.supabase) throw new Error('Supabase library not loaded!');
             
             this.supabase = window.supabase.createClient(config.supabaseUrl, config.supabaseKey);
             this.isReady = true;
@@ -51,17 +56,6 @@ class DatabaseManager {
         } catch (err) {
             console.error('❌ Database Initialization Failed:', err);
         }
-    }
-
-    loadSupabaseScript() {
-        return new Promise((resolve, reject) => {
-            if (window.supabase) return resolve();
-            const script = document.createElement('script');
-            script.src = 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2';
-            script.onload = resolve;
-            script.onerror = reject;
-            document.head.appendChild(script);
-        });
     }
 
     // Direct fetch helpers for Student Portal
