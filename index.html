@@ -6,6 +6,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>بوابة الطالب | إيجاز</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="https://unpkg.com/html5-qrcode"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link
@@ -1469,12 +1471,454 @@
         <p style="margin-top: 1rem; color: white; font-family: 'Cairo', sans-serif;">ضع الباركود أمام الكاميرا</p>
     </div>
 
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.39.3/dist/umd/supabase.min.js"></script>
-    <script src="https://unpkg.com/html5-qrcode"></script>
-    <script src="js/config.js"></script>
-    <script src="js/database.js"></script>
-    <script src="js/auth.js"></script>
-    <script src="js/student_portal.js"></script>
+    <script>
+        // --- CONFIG ---
+        window.EEJAZ_CONFIG = {
+            "supabaseUrl": "https://syioenochygvqdevbnzj.supabase.co",
+            "supabaseKey": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InN5aW9lbm9jaHlndnFkZXZibnpqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjYyOTg1NDksImV4cCI6MjA4MTg3NDU0OX0.RWr4oVgk3Me1AivBCDw6Ns05Eb338VvTXmdrCJhefq4"
+        };
+
+        // --- DATABASE MANAGER ---
+        class DatabaseManager {
+            constructor() {
+                this.supabase = null;
+                this.isReady = false;
+                this.init();
+            }
+
+            async init() {
+                try {
+                    if (!window.EEJAZ_CONFIG || !window.supabase) {
+                        await new Promise(resolve => {
+                            let attempts = 0;
+                            const check = setInterval(() => {
+                                attempts++;
+                                if ((window.EEJAZ_CONFIG && window.supabase) || attempts > 10) {
+                                    clearInterval(check);
+                                    resolve();
+                                }
+                            }, 100);
+                        });
+                    }
+
+                    const config = window.EEJAZ_CONFIG;
+                    if (!config || !window.supabase) return;
+
+                    this.supabase = window.supabase.createClient(config.supabaseUrl, config.supabaseKey);
+                    this.isReady = true;
+                    window.dispatchEvent(new CustomEvent('db-ready'));
+                } catch (err) {
+                    console.error('❌ Database Initialization Failed:', err);
+                }
+            }
+
+            async from(table) {
+                if (!this.supabase) throw new Error('Database not initialized');
+                return this.supabase.from(table);
+            }
+        }
+        window.db = new DatabaseManager();
+
+        // --- AUTH SYSTEM ---
+        class SecureAuthSystem {
+            constructor() {
+                this.CURRENT_USER_KEY = 'currentUser';
+                this.initSplashScreen();
+            }
+
+            initSplashScreen() {
+                document.addEventListener('DOMContentLoaded', () => {
+                    const splash = document.getElementById('splash-screen');
+                    const authContainer = document.getElementById('authContainer');
+                    if (!splash) return;
+                    splash.style.opacity = '1';
+                    splash.style.visibility = 'visible';
+                    setTimeout(() => {
+                        splash.style.opacity = '0';
+                        splash.style.visibility = 'hidden';
+                        setTimeout(() => {
+                            if (authContainer) {
+                                authContainer.style.opacity = '1';
+                                authContainer.style.display = 'flex';
+                            }
+                            splash.remove();
+                        }, 400);
+                    }, 800);
+                });
+            }
+
+            async login(username, password, instituteId) {
+                if (!instituteId) throw new Error('يرجى اختيار المعهد');
+                const client = (window.db && window.db.supabase) || window.supabaseClient;
+                if (!client) throw new Error('فشل الاتصال بقاعدة البيانات');
+
+                try {
+                    const { data: students, error } = await client
+                        .from('students')
+                        .select('*')
+                        .eq('national_id', username)
+                        .eq('institute_id', instituteId)
+                        .limit(1);
+
+                    if (error) throw error;
+
+                    if (students && students.length > 0) {
+                        const student = students[0];
+                        const studentData = typeof student.json_data === 'string' ? JSON.parse(student.json_data || '{}') : (student.json_data || {});
+                        const encodedPassword = btoa(unescape(encodeURIComponent(password)));
+
+                        if (studentData.portal_password === encodedPassword) {
+                            const sessionData = {
+                                ...studentData,
+                                id: student.id,
+                                national_id: student.national_id,
+                                registration_number: student.registration_number,
+                                role: 'طالب',
+                                fullName: studentData.full_name || studentData.name || student.name,
+                                institute_id: student.institute_id
+                            };
+                            localStorage.setItem(this.CURRENT_USER_KEY, JSON.stringify(sessionData));
+                            localStorage.setItem('student_session', JSON.stringify(sessionData));
+                            return sessionData;
+                        }
+                    }
+                    throw new Error('الرقم الوطني أو كلمة المرور غير صحيحة');
+                } catch (e) {
+                    throw new Error(e.message || 'فشل تسجيل الدخول');
+                }
+            }
+
+            logout() {
+                localStorage.removeItem(this.CURRENT_USER_KEY);
+                localStorage.removeItem('student_session');
+                window.location.reload();
+            }
+
+            isLoggedIn() {
+                return !!localStorage.getItem(this.CURRENT_USER_KEY);
+            }
+
+            getCurrentStudent() {
+                const data = localStorage.getItem(this.CURRENT_USER_KEY);
+                return data ? JSON.parse(data) : null;
+            }
+        }
+        window.authSystem = new SecureAuthSystem();
+
+        // --- PORTAL LOGIC ---
+        window.formatArabicDate = function (dateStr) {
+            if (!dateStr) return '-';
+            try {
+                let d;
+                if (typeof dateStr === 'string' && dateStr.includes('/') && dateStr.length > 7 && !dateStr.includes('-')) {
+                    return dateStr;
+                }
+                d = new Date(dateStr);
+                if (isNaN(d.getTime())) return dateStr;
+                const day = d.getDate().toString().padStart(2, '0');
+                const month = (d.getMonth() + 1).toString().padStart(2, '0');
+                const year = d.getFullYear();
+                return `${day}/${month}/${year}`;
+            } catch (e) {
+                return dateStr;
+            }
+        };
+
+        let supabaseClient = null;
+        let currentStudent = null;
+        let selectedSemesterIdx = -1;
+        let allAnnouncements = [];
+        const READ_NOTIFS_KEY = 'student_read_notifications';
+
+        const get = (id) => document.getElementById(id);
+        const show = (id) => get(id).classList.remove('hidden');
+        const hide = (id) => get(id).classList.add('hidden');
+
+        async function initApp() {
+            try {
+                if (!window.db || !window.db.isReady) {
+                    await new Promise(resolve => {
+                        window.addEventListener('db-ready', resolve, { once: true });
+                        setTimeout(resolve, 3000);
+                    });
+                }
+                supabaseClient = window.db ? window.db.supabase : null;
+                if (!supabaseClient) throw new Error('فشل الاتصال بقاعدة البيانات');
+
+                if (authSystem.isLoggedIn()) {
+                    currentStudent = authSystem.getCurrentStudent();
+                    initDashboard();
+                    hide('authContainer');
+                    show('dashboardContainer');
+                    const mobileNav = get('mobileNav');
+                    if (mobileNav) mobileNav.classList.add('active');
+                    fetchAnnouncements();
+                    loadSchedule();
+                }
+                fetchInstitutes();
+            } catch (e) {
+                console.error('Init Failed:', e);
+            }
+        }
+
+        async function fetchInstitutes() {
+            try {
+                const { data, error } = await supabaseClient.from('institutes').select('id, name').eq('subscription_status', 'active').order('name');
+                if (error) throw error;
+                const options = '<option value="">-- اختر المعهد --</option>' + data.map(inst => `<option value="${inst.id}">${inst.name}</option>`).join('');
+                get('instituteSelect').innerHTML = options;
+                get('activateInstituteSelect').innerHTML = options;
+            } catch (e) { console.error(e); }
+        }
+
+        async function handleLogin(e) {
+            e.preventDefault();
+            const instId = get('instituteSelect').value;
+            const id = get('loginId').value.trim();
+            const pass = get('loginPass').value.trim();
+            if (!instId || !id || !pass) return alert('الرجاء إكمال البيانات');
+
+            setBtnLoading('loginBtn', true);
+            try {
+                currentStudent = await authSystem.login(id, pass, instId);
+                initDashboard();
+                hide('authContainer');
+                show('dashboardContainer');
+                const mobileNav = get('mobileNav');
+                if (mobileNav) mobileNav.classList.add('active');
+                fetchAnnouncements();
+                loadSchedule();
+            } catch (err) { alert(err.message); }
+            finally { setBtnLoading('loginBtn', false); }
+        }
+
+        function initDashboard() {
+            if (!currentStudent) return;
+            get('dashName').textContent = currentStudent.full_name;
+            get('dashId').textContent = 'رقم القيد: ' + (currentStudent.registration_number || '---');
+            get('dashSpec').textContent = currentStudent.specialization || 'غير محدد';
+            get('dashSem').textContent = currentStudent.current_semester || 'الفصل ' + (currentStudent.placement_semester_index || '1');
+            get('dashAvatar').textContent = currentStudent.gender === 'female' ? '👩‍🎓' : '👨‍🎓';
+            renderAcademic();
+            renderFinance();
+            const lastTab = localStorage.getItem('active_tab') || 'academic';
+            switchTab(lastTab);
+        }
+
+        function switchTab(tabName) {
+            document.querySelectorAll('.view-section').forEach(el => el.classList.remove('active'));
+            document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
+            document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
+            const tabEl = get('tab-' + tabName);
+            if (tabEl) tabEl.classList.add('active');
+            localStorage.setItem('active_tab', tabName);
+            if (tabName === 'schedule') loadSchedule();
+            if (tabName === 'announcements') fetchAnnouncements();
+            if (tabName === 'finance') renderFinance();
+        }
+
+        function renderAcademic() {
+            const container = get('academicContent');
+            const selector = get('semesterSelector');
+            const records = currentStudent.academic_record || [];
+            if (records.length === 0) {
+                container.innerHTML = '<p class="label" style="text-align:center;">لا توجد نتائج</p>';
+                return;
+            }
+            const validSems = records.map((s, i) => ({ ...s, idx: i })).filter(s => s.subjects && s.subjects.length > 0);
+            if (validSems.length === 0) {
+                container.innerHTML = '<p class="label" style="text-align:center;">لا توجد نتائج مرصودة</p>';
+                return;
+            }
+            if (selectedSemesterIdx === -1) selectedSemesterIdx = validSems[validSems.length - 1].idx;
+            selector.innerHTML = validSems.map(s => `<div class="sem-chip ${s.idx === selectedSemesterIdx ? 'active' : ''}" onclick="switchSemester(${s.idx})">الفصل ${s.semester_index || (s.idx + 1)}</div>`).join('');
+            const sem = records[selectedSemesterIdx];
+            const finRecords = currentStudent.financial_record || [];
+            const fin = finRecords.find(f => parseInt(f.semester_index) === parseInt(sem.semester_index || (selectedSemesterIdx + 1)));
+            const isPaid = fin ? ((fin.total_fee || 0) - (fin.paid_amount || 0) - (fin.discount || 0) <= 0) : false;
+
+            if (!isPaid) {
+                container.innerHTML = '<div class="locked-msg"><span class="locked-icon">🔒</span><div style="font-weight:bold;">النتيجة محجوبة</div><p>يرجى سداد الرسوم لعرض الدرجات.</p></div>';
+                return;
+            }
+            const total = sem.subjects.reduce((sum, s) => sum + (s.total || s.final || 0), 0);
+            const avg = ((total / (sem.subjects.length * 100)) * 100).toFixed(1);
+            const isPassed = sem.subjects.every(s => (s.total || s.final || 0) >= 50);
+
+            let html = `<div class="info-card highlight" style="flex-direction:column; align-items:stretch;">
+                <div style="display:flex; justify-content:space-between; align-items:center;">
+                    <div><span class="value">نتائج الفصل ${sem.semester_index || (selectedSemesterIdx + 1)}</span><div class="label">المعدل: ${avg}%</div></div>
+                    <span class="status-badge ${isPassed ? 'status-paid' : 'status-pending'}">${isPassed ? 'ناجح' : 'راسب'}</span>
+                </div><div style="margin-top:0.5rem; border-top:1px solid rgba(255,255,255,0.1); padding-top:0.5rem;">`;
+            sem.subjects.forEach(s => {
+                html += `<div style="display:flex; justify-content:space-between; font-size:0.9rem;"><span style="color:var(--text-dim);">${s.subject_name}</span><span>${s.total || s.final || 0}%</span></div>`;
+            });
+            container.innerHTML = html + '</div></div>';
+        }
+
+        function switchSemester(idx) { selectedSemesterIdx = idx; renderAcademic(); }
+
+        function renderFinance() {
+            const summary = get('financeSummary');
+            const history = get('financeHistory');
+            const records = currentStudent.financial_record || [];
+            let totalReq = 0, totalPaid = 0;
+            records.forEach(r => { totalReq += (r.total_fee || 0); totalPaid += (r.paid_amount || 0) + (r.discount || 0); });
+            summary.innerHTML = `<div style="background:rgba(16,185,129,0.1); padding:1rem; border-radius:12px; text-align:center;"><div class="label">المدفوع</div><div class="value">${totalPaid} د.ل</div></div>
+                <div style="background:rgba(239,68,68,0.1); padding:1rem; border-radius:12px; text-align:center;"><div class="label">المتبقي</div><div class="value">${totalReq - totalPaid} د.ل</div></div>`;
+            if (records.length === 0) { history.innerHTML = '<p class="label" style="text-align:center;">لا توجد سجلات</p>'; return; }
+            history.innerHTML = records.map((r, i) => {
+                const rem = (r.total_fee || 0) - ((r.paid_amount || 0) + (r.discount || 0));
+                return `<div class="info-card"><div><div class="value">الفصل ${r.semester_index || (i + 1)}</div><div class="label">المطلوب: ${r.total_fee}</div></div>
+                    <div style="text-align:left;"><div class="status-badge ${rem <= 0 ? 'status-paid' : 'status-partial'}">${rem <= 0 ? 'مكتمل' : 'غير مكتمل'}</div><div class="label">باقي: ${rem}</div></div></div>`;
+            }).join('');
+        }
+
+        async function loadSchedule() {
+            const container = get('scheduleContent');
+            try {
+                const { data, error } = await supabaseClient.from('schedules').select('*').eq('institute_id', currentStudent.institute_id).eq('semester_index', currentStudent.placement_semester_index || 1).limit(1);
+                if (error || !data[0]) { container.innerHTML = '<p class="label" style="text-align:center;">الجدول غير متوفر</p>'; return; }
+                const schedule = typeof data[0].json_data === 'string' ? JSON.parse(data[0].json_data) : data[0].json_data;
+                const daysOrder = ['Saturday', 'Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday'];
+                const daysArabic = { 'Saturday': 'السبت', 'Sunday': 'الأحد', 'Monday': 'الاثنين', 'Tuesday': 'الثلاثاء', 'Wednesday': 'الأربعاء', 'Thursday': 'الخميس' };
+                let html = '';
+                daysOrder.forEach(day => {
+                    const slots = schedule.days[day];
+                    if (slots && slots.length > 0) {
+                        html += `<div class="schedule-day-card"><div class="day-header">${daysArabic[day]}</div><div class="day-slots">` +
+                            slots.map(s => `<div class="slot-item"><div class="slot-time">${s.time}</div><div class="slot-info"><div class="slot-subject">${s.subject}</div><div class="slot-meta"><span>📍 ${s.room || '---'}</span><span>👤 ${s.teacher || '---'}</span></div></div></div>`).join('') +
+                            `</div></div>`;
+                    }
+                });
+                container.innerHTML = html || '<p class="label" style="text-align:center;">الجدول فارغ</p>';
+            } catch (e) { container.innerHTML = '<p class="label" style="text-align:center;">خطأ في التحميل</p>'; }
+        }
+
+        async function fetchAnnouncements() {
+            try {
+                const { data, error } = await supabaseClient.from('announcements').select('*').eq('institute_id', currentStudent.institute_id).order('created_at', { ascending: false });
+                if (error) throw error;
+                allAnnouncements = (data || []).filter(item => {
+                    if (item.expires_at && new Date(item.expires_at) < new Date()) return false;
+                    const targetSpec = item.target_specialization || 'all';
+                    const targetSem = String(item.target_semester || 'all');
+                    return (targetSpec === 'all' || targetSpec === currentStudent.specialization) && (targetSem === 'all' || targetSem === String(currentStudent.current_semester || currentStudent.placement_semester_index || '1'));
+                });
+                renderAnnouncements();
+                updateNotificationBadge();
+            } catch (e) { console.error(e); }
+        }
+
+        function renderAnnouncements() {
+            const list = get('announcementsList');
+            if (allAnnouncements.length === 0) { list.innerHTML = '<p style="text-align:center; color:var(--text-dim);">لا توجد إشعارات</p>'; return; }
+            const read = JSON.parse(localStorage.getItem(READ_NOTIFS_KEY) || '[]');
+            list.innerHTML = allAnnouncements.map((n, i) => {
+                const isRead = read.includes(n.id);
+                return `<div class="notification-card ${isRead ? 'read' : 'unread'}" onclick="showNotifDetails(${i})">
+                    <div class="notification-icon">${n.type === 'exam' ? '📝' : '📘'}</div>
+                    <div class="notification-content"><div class="notification-title">${n.title}${!isRead ? '<span class="unread-dot"></span>' : ''}</div>
+                    <div class="notification-summary">${n.content}</div><span class="notification-date">${formatArabicDate(n.created_at)}</span></div></div>`;
+            }).join('');
+        }
+
+        function showNotifDetails(idx) {
+            const n = allAnnouncements[idx];
+            const read = JSON.parse(localStorage.getItem(READ_NOTIFS_KEY) || '[]');
+            if (!read.includes(n.id)) { read.push(n.id); localStorage.setItem(READ_NOTIFS_KEY, JSON.stringify(read)); updateNotificationBadge(); renderAnnouncements(); }
+            get('modalTitle').textContent = n.title;
+            get('modalDate').textContent = 'التاريخ: ' + formatArabicDate(n.created_at);
+            get('modalContent').textContent = n.content;
+            show('notifModal');
+        }
+
+        function updateNotificationBadge() {
+            const read = JSON.parse(localStorage.getItem(READ_NOTIFS_KEY) || '[]');
+            const unread = allAnnouncements.filter(n => !read.includes(n.id)).length;
+            const badge = get('notifBadge');
+            if (unread > 0) { badge.textContent = unread; badge.classList.remove('hidden'); }
+            else { badge.classList.add('hidden'); }
+        }
+
+        async function handleVerifyStudent(e) {
+            e.preventDefault();
+            const instId = get('activateInstituteSelect').value;
+            const id = get('actId').value.trim();
+            const reg = get('actRegNum').value.trim();
+            setBtnLoading('verifyBtn', true);
+            try {
+                const { data, error } = await supabaseClient.from('students').select('*').eq('national_id', id).eq('registration_number', reg).eq('institute_id', instId).limit(1);
+                if (error || !data[0]) throw new Error('البيانات غير صحيحة');
+                const student = data[0];
+                const sData = typeof student.json_data === 'string' ? JSON.parse(student.json_data) : student.json_data;
+                if (sData.portal_active && !get('activateStepTitle').textContent.includes('إعادة')) throw new Error('الحساب مفعل مسبقاً');
+                pendingStudent = { ...sData, db_id: student.id, national_id: student.national_id, registration_number: student.registration_number, institute_id: student.institute_id };
+                get('verifiedStudentName').textContent = sData.full_name || student.name;
+                hide('activateStage1'); show('activateStage2');
+            } catch (err) { alert(err.message); }
+            finally { setBtnLoading('verifyBtn', false); }
+        }
+
+        async function handleFinalRegistration(e) {
+            e.preventDefault();
+            const pass = get('actPass').value;
+            if (pass !== get('actPassConfirm').value) return alert('كلمات المرور غير متطابقة');
+            setBtnLoading('actBtn', true);
+            try {
+                const updated = { ...pendingStudent, portal_password: btoa(unescape(encodeURIComponent(pass))), portal_active: true };
+                const dbId = updated.db_id; delete updated.db_id;
+                const { error } = await supabaseClient.from('students').update({ json_data: JSON.stringify(updated), last_modified: new Date().toISOString() }).eq('id', dbId);
+                if (error) throw error;
+                alert('تم التفعيل بنجاح'); switchView('login');
+            } catch (err) { alert(err.message); }
+            finally { setBtnLoading('actBtn', false); }
+        }
+
+        function logout() { finalizeLogout(); }
+        function finalizeLogout() { authSystem.logout(); }
+        function switchView(v) { if (v === 'login') { show('loginView'); hide('activateView'); } else { hide('loginView'); show('activateView'); } }
+        const setBtnLoading = (id, loading) => {
+            const btn = get(id); if (!btn) return;
+            const loader = btn.querySelector('.loader'); const text = btn.querySelector('.btn-text');
+            if (loading) { if (text) text.style.display = 'none'; if (loader) loader.style.display = 'block'; btn.disabled = true; }
+            else { if (text) text.style.display = 'block'; if (loader) loader.style.display = 'none'; btn.disabled = false; }
+        };
+
+        function togglePassword(id, el) {
+            const input = get(id);
+            if (input.type === 'password') { input.type = 'text'; el.querySelector('i').className = 'fas fa-eye-slash'; }
+            else { input.type = 'password'; el.querySelector('i').className = 'fas fa-eye'; }
+        }
+
+        let html5QrCode = null;
+        function startScanner(id) {
+            get('scannerModal').style.display = 'flex';
+            html5QrCode = new Html5Qrcode("reader");
+            html5QrCode.start({ facingMode: "environment" }, { fps: 10, qrbox: 250 }, (text) => {
+                let val = text; try { const d = JSON.parse(text); val = d.nat || d.reg || text; } catch (e) { }
+                get(id).value = val; stopScanner();
+            }).catch(err => { alert('فشل الكاميرا'); stopScanner(); });
+        }
+        function stopScanner() {
+            if (html5QrCode) { html5QrCode.stop().then(() => { html5QrCode.clear(); get('scannerModal').style.display = 'none'; html5QrCode = null; }).catch(() => { get('scannerModal').style.display = 'none'; }); }
+            else get('scannerModal').style.display = 'none';
+        }
+
+        document.addEventListener('DOMContentLoaded', initApp);
+
+        window.togglePassword = togglePassword;
+        window.switchView = switchView;
+        window.switchTab = switchTab;
+        window.switchSemester = switchSemester;
+        window.handleLogin = handleLogin;
+        window.handleVerifyStudent = handleVerifyStudent;
+        window.handleFinalRegistration = handleFinalRegistration;
+        window.logout = logout;
+        window.startScanner = startScanner;
+        window.stopScanner = stopScanner;
+        window.closeNotifModal = () => hide('notifModal');
+    </script>
 </body>
 
 </html>
