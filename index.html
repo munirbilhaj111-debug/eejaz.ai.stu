@@ -405,6 +405,12 @@
             }
         }
 
+        @keyframes pulse {
+            0% { transform: scale(1); box-shadow: 0 4px 15px rgba(239, 68, 68, 0.4); }
+            50% { transform: scale(1.02); box-shadow: 0 4px 25px rgba(239, 68, 68, 0.6); }
+            100% { transform: scale(1); box-shadow: 0 4px 15px rgba(239, 68, 68, 0.4); }
+        }
+
         /* Views */
         .view-section {
             display: none;
@@ -767,6 +773,12 @@
             border: 1px solid rgba(245, 158, 11, 0.2);
         }
 
+        .notif-admin {
+            background: rgba(139, 92, 246, 0.15);
+            color: #8b5cf6;
+            border: 1px solid rgba(139, 92, 246, 0.2);
+        }
+
         .notif-finance {
             background: rgba(16, 185, 129, 0.15);
             color: #10b981;
@@ -821,6 +833,92 @@
             color: var(--text-dim);
             margin-top: 0.5rem;
             display: block;
+        }
+
+        /* Eijaz Roadmap Styles */
+        .eijaz-roadmap {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 1rem;
+            margin-top: 1.5rem;
+            padding: 1rem;
+            background: rgba(255, 255, 255, 0.03);
+            border-radius: 20px;
+            border: 1px solid var(--glass-border);
+        }
+
+        .roadmap-item {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            text-align: center;
+            padding: 1rem 0.5rem;
+            border-radius: 16px;
+            position: relative;
+            transition: all 0.3s ease;
+            background: rgba(255, 255, 255, 0.05);
+        }
+
+        .roadmap-item.completed {
+            background: rgba(16, 185, 129, 0.1);
+            border: 1px solid rgba(16, 185, 129, 0.3);
+        }
+
+        .roadmap-item.current {
+            background: rgba(59, 130, 246, 0.1);
+            border: 1px solid var(--primary);
+            transform: scale(1.05);
+            box-shadow: 0 0 15px rgba(59, 130, 246, 0.2);
+            z-index: 2;
+        }
+
+        .roadmap-item.pending {
+            background: rgba(245, 158, 11, 0.1);
+            border: 1px solid rgba(245, 158, 11, 0.3);
+        }
+
+        .roadmap-item.locked {
+            opacity: 0.5;
+            filter: grayscale(0.8);
+        }
+
+        .roadmap-icon {
+            font-size: 1.5rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .roadmap-label {
+            font-size: 0.75rem;
+            font-weight: 600;
+            color: var(--text-light);
+        }
+
+        .roadmap-status {
+            font-size: 0.65rem;
+            margin-top: 0.25rem;
+            padding: 2px 8px;
+            border-radius: 10px;
+        }
+
+        .status-free { background: rgba(16, 185, 129, 0.2); color: #10b981; }
+        .status-paid { background: rgba(59, 130, 246, 0.2); color: #3b82f6; }
+        .status-wait { background: rgba(245, 158, 11, 0.2); color: #f59e0b; }
+        .status-lock { background: rgba(255, 255, 255, 0.1); color: var(--text-dim); }
+
+        .roadmap-connector {
+            position: absolute;
+            height: 2px;
+            background: var(--glass-border);
+            width: 100%;
+            top: 50%;
+            right: -50%;
+            z-index: 1;
+        }
+
+        @media (max-width: 480px) {
+            .eijaz-roadmap {
+                grid-template-columns: repeat(2, 1fr);
+            }
         }
 
         .modal-overlay {
@@ -1095,6 +1193,11 @@
 
     <!-- Dashboard -->
     <div class="container hidden" id="dashboardContainer">
+        <!-- Eijaz Service Warning Banner -->
+        <div id="eijazWarningBanner" class="hidden" style="background: var(--danger); color: white; padding: 1rem; border-radius: 12px; margin-bottom: 1.5rem; text-align: center; font-weight: bold; animation: pulse 2s infinite; box-shadow: 0 4px 15px rgba(239, 68, 68, 0.4);">
+            ⚠️ عليك تجديد الخدمة من إدارة المعهد لتتمكن من عرض بياناتك
+        </div>
+
         <header class="dashboard-header">
             <div class="student-avatar" id="dashAvatar">👤</div>
             <div class="student-info">
@@ -1155,6 +1258,20 @@
 
                 <div id="financeHistory">
                     <p style="text-align:center; color: var(--text-dim);">لا توجد حركات مالية.</p>
+                </div>
+
+                <!-- Eijaz Service Roadmap -->
+                <div id="eijazRoadmapSection" style="margin-top: 2rem; display: none;">
+                    <h4 style="margin-bottom: 1rem; font-size: 1rem; color: var(--text-light); display: flex; align-items: center; gap: 0.5rem;">
+                        <i class="fas fa-map-marked-alt" style="color: var(--primary);"></i>
+                        خريطة طريق خدمة إيجاز الذكية
+                    </h4>
+                    <p style="font-size: 0.8rem; color: var(--text-dim); margin-bottom: 1rem;">
+                        تتبع رحلتك الدراسية مع إيجاز. الفصول الدراسية الحالية والسابقة مجانية تماماً، ويبدأ تفعيل الخدمة المدفوعة من الفصل القادم.
+                    </p>
+                    <div id="eijazRoadmap" class="eijaz-roadmap">
+                        <!-- Filled by JS -->
+                    </div>
                 </div>
 
                 <!-- Future Payment Options Preparation -->
@@ -1536,7 +1653,7 @@
         // --- AUTH SYSTEM ---
         class SecureAuthSystem {
             constructor() {
-                this.CURRENT_USER_KEY = 'currentUser';
+                this.CURRENT_USER_KEY = 'studentUser'; // تم تغيير المفتاح لمنع التداخل مع لوحة الإدارة
                 this.initSplashScreen();
             }
 
@@ -1642,6 +1759,7 @@
         let currentStudent = null;
         let selectedSemesterIdx = -1;
         let allAnnouncements = [];
+        let isEijazServiceActive = true; // Default to true until checked
         const READ_NOTIFS_KEY = 'student_read_notifications';
 
         const get = (id) => document.getElementById(id);
@@ -1706,17 +1824,129 @@
             finally { setBtnLoading('loginBtn', false); }
         }
 
-        function initDashboard() {
+        async function initDashboard() {
             if (!currentStudent) return;
             get('dashName').textContent = currentStudent.full_name;
             get('dashId').textContent = 'رقم القيد: ' + (currentStudent.registration_number || '---');
             get('dashSpec').textContent = currentStudent.specialization || 'غير محدد';
             get('dashSem').textContent = currentStudent.current_semester || 'الفصل ' + (currentStudent.placement_semester_index || '1');
             get('dashAvatar').textContent = currentStudent.gender === 'female' ? '👩‍🎓' : '👨‍🎓';
+            
+            // Check Eijaz Service Status
+            await checkEijazServiceStatus();
+            
             renderAcademic();
             renderFinance();
             const lastTab = localStorage.getItem('active_tab') || 'academic';
             switchTab(lastTab);
+        }
+
+        async function checkEijazServiceStatus() {
+            try {
+                // Helper to compare semesters (Season Year)
+                function isSemesterBefore(semA, semB) {
+                    if (!semA || !semB) return false;
+                    const [seasonA, yearA] = semA.split(' ');
+                    const [seasonB, yearB] = semB.split(' ');
+                    if (parseInt(yearA) < parseInt(yearB)) return true;
+                    if (parseInt(yearA) > parseInt(yearB)) return false;
+                    const seasons = ['ربيع', 'صيف', 'خريف'];
+                    return seasons.indexOf(seasonA) < seasons.indexOf(seasonB);
+                }
+
+                // 1. Get current global semester - Improved to prevent 406 error
+                let currentSemKey = null;
+                try {
+                    const { data: semData, error: semError } = await supabaseClient
+                        .from('meta')
+                        .select('value')
+                        .eq('key', 'current_semester')
+                        .is('institute_id', null);
+                    
+                    if (semData && semData.length > 0 && semData[0].value) {
+                        const val = semData[0].value;
+                        const currentGlobalSem = typeof val === 'string' ? JSON.parse(val) : val;
+                        currentSemKey = `${currentGlobalSem.semesterName} ${currentGlobalSem.fullYear}`;
+                    }
+                } catch (err) {
+                    console.log('ℹ️ Using local semester fallback.');
+                }
+                
+                if (!currentSemKey) {
+                    isEijazServiceActive = true;
+                    return;
+                }
+                
+                // 2. Check student's activation status
+                let studentData = currentStudent;
+                let updated = false;
+
+                // Determine the "Free Threshold" for this student
+                // If they are in Semester 4 now, then 1, 2, 3, 4 are FREE.
+                // Payment starts from Semester 5.
+                const studentCurrentSemesterIdx = parseInt(studentData.placement_semester_index || 1);
+                
+                // We store the "Base Semester" (the one they are currently in)
+                if (!studentData.eijaz_base_semester_idx) {
+                    studentData.eijaz_base_semester_idx = studentCurrentSemesterIdx;
+                    studentData.eijaz_activation_semester = currentSemKey; // The global semester when they first logged in
+                    updated = true;
+                }
+
+                const baseIdx = parseInt(studentData.eijaz_base_semester_idx);
+                
+                // Logic: 
+                // 1. If global semester is still the same as activation semester -> ACTIVE (FREE)
+                // 2. If global semester has advanced, we check if the student has moved to a NEW semester index.
+                
+                if (currentSemKey === studentData.eijaz_activation_semester) {
+                    isEijazServiceActive = true;
+                    hide('eijazWarningBanner');
+                } else {
+                    // Global semester has advanced. 
+                    // Has the student moved to a semester index > baseIdx?
+                    if (studentCurrentSemesterIdx > baseIdx) {
+                        // Yes, they are in a new semester. Check payment for CURRENT global semester.
+                        const payments = studentData.eijaz_payments || {};
+                        if (payments[currentSemKey] && payments[currentSemKey].status === 'paid') {
+                            isEijazServiceActive = true;
+                            hide('eijazWarningBanner');
+                        } else {
+                            isEijazServiceActive = false;
+                            show('eijazWarningBanner');
+                        }
+                    } else {
+                        // They are still in the same semester index (maybe they failed or the global semester changed fast)
+                        isEijazServiceActive = true;
+                        hide('eijazWarningBanner');
+                    }
+                }
+
+                // Update local storage if we changed activation semester
+                if (updated) {
+                    localStorage.setItem(authSystem.CURRENT_USER_KEY, JSON.stringify(studentData));
+                    
+                    // Also update Supabase so it's persistent
+                    const { data: rawStudent } = await supabaseClient
+                        .from('students')
+                        .select('json_data')
+                        .eq('id', studentData.id)
+                        .single();
+                    
+                    if (rawStudent) {
+                        const dbJson = typeof rawStudent.json_data === 'string' ? JSON.parse(rawStudent.json_data) : rawStudent.json_data;
+                        dbJson.eijaz_activation_semester = currentSemKey;
+                        
+                        await supabaseClient
+                            .from('students')
+                            .update({ json_data: dbJson })
+                            .eq('id', studentData.id);
+                    }
+                }
+            } catch (e) {
+                console.error('Error checking Eijaz status:', e);
+                isEijazServiceActive = true; // Fallback to active on error to avoid blocking students
+            }
         }
 
         function switchTab(tabName) {
@@ -1733,6 +1963,10 @@
 
         function renderAcademic() {
             const container = get('academicContent');
+            if (!isEijazServiceActive) {
+                container.innerHTML = '<div class="locked-msg"><span class="locked-icon">⚠️</span><div style="font-weight:bold;">الخدمة غير مفعلة</div><p>يرجى تجديد الخدمة من إدارة المعهد لعرض نتائجك.</p></div>';
+                return;
+            }
             const selector = get('semesterSelector');
             const records = currentStudent.academic_record || [];
             if (records.length === 0) {
@@ -1775,58 +2009,220 @@
         function renderFinance() {
             const summary = get('financeSummary');
             const history = get('financeHistory');
+            const roadmapSection = get('eijazRoadmapSection');
+            const roadmapContainer = get('eijazRoadmap');
+            
+            if (!isEijazServiceActive) {
+                summary.innerHTML = '';
+                history.innerHTML = '<div class="locked-msg"><span class="locked-icon">⚠️</span><div style="font-weight:bold;">الخدمة غير مفعلة</div><p>يرجى تجديد الخدمة من إدارة المعهد لعرض البيانات المالية.</p></div>';
+                if (roadmapSection) roadmapSection.style.display = 'none';
+                return;
+            }
+
             const records = currentStudent.financial_record || [];
             let totalReq = 0, totalPaid = 0;
             records.forEach(r => { totalReq += (r.total_fee || 0); totalPaid += (r.paid_amount || 0) + (r.discount || 0); });
             summary.innerHTML = `<div style="background:rgba(16,185,129,0.1); padding:1rem; border-radius:12px; text-align:center;"><div class="label">المدفوع</div><div class="value">${totalPaid} د.ل</div></div>
                 <div style="background:rgba(239,68,68,0.1); padding:1rem; border-radius:12px; text-align:center;"><div class="label">المتبقي</div><div class="value">${totalReq - totalPaid} د.ل</div></div>`;
-            if (records.length === 0) { history.innerHTML = '<p class="label" style="text-align:center;">لا توجد سجلات</p>'; return; }
-            history.innerHTML = records.map((r, i) => {
-                const rem = (r.total_fee || 0) - ((r.paid_amount || 0) + (r.discount || 0));
-                return `<div class="info-card"><div><div class="value">الفصل ${r.semester_index || (i + 1)}</div><div class="label">المطلوب: ${r.total_fee}</div></div>
-                    <div style="text-align:left;"><div class="status-badge ${rem <= 0 ? 'status-paid' : 'status-partial'}">${rem <= 0 ? 'مكتمل' : 'غير مكتمل'}</div><div class="label">باقي: ${rem}</div></div></div>`;
-            }).join('');
+            
+            if (records.length === 0) { 
+                history.innerHTML = '<p class="label" style="text-align:center;">لا توجد سجلات مالية معهدية</p>'; 
+            } else {
+                history.innerHTML = records.map((r, i) => {
+                    const rem = (r.total_fee || 0) - ((r.paid_amount || 0) + (r.discount || 0));
+                    return `<div class="info-card"><div><div class="value">الفصل ${r.semester_index || (i + 1)}</div><div class="label">المطلوب: ${r.total_fee}</div></div>
+                        <div style="text-align:left;"><div class="status-badge ${rem <= 0 ? 'status-paid' : 'status-partial'}">${rem <= 0 ? 'مكتمل' : 'غير مكتمل'}</div><div class="label">باقي: ${rem}</div></div></div>`;
+                }).join('');
+            }
+
+            // --- Render Eijaz Roadmap ---
+            if (roadmapSection && roadmapContainer) {
+                roadmapSection.style.display = 'block';
+                const baseIdx = parseInt(currentStudent.eijaz_base_semester_idx || 1);
+                const currentIdx = parseInt(currentStudent.placement_semester_index || 1);
+                const payments = currentStudent.eijaz_payments || {};
+                
+                let roadmapHtml = '';
+                // Show 6 semesters starting from 1 or baseIdx-2 to show some context
+                const startSem = Math.max(1, Math.min(baseIdx, currentIdx) - 1);
+                
+                for (let i = 0; i < 6; i++) {
+                    const semIdx = startSem + i;
+                    let status = 'locked';
+                    let statusLabel = 'قادم';
+                    let statusClass = 'status-lock';
+                    let icon = '🔒';
+                    let itemClass = 'locked';
+
+                    if (semIdx <= baseIdx) {
+                        status = 'completed';
+                        statusLabel = 'مجاني';
+                        statusClass = 'status-free';
+                        icon = '✅';
+                        itemClass = 'completed';
+                    } else if (semIdx === currentIdx) {
+                        // This case handles if they are in a semester > baseIdx but haven't paid yet or have paid
+                        const isPaid = payments[currentIdx] && payments[currentIdx].status === 'paid';
+                        status = isPaid ? 'completed' : 'pending';
+                        statusLabel = isPaid ? 'مفعل' : 'مطلوب';
+                        statusClass = isPaid ? 'status-paid' : 'status-wait';
+                        icon = isPaid ? '🚀' : '⏳';
+                        itemClass = 'current';
+                    } else if (semIdx < currentIdx) {
+                        // Past semester but after baseIdx
+                        const isPaid = payments[semIdx] && payments[semIdx].status === 'paid';
+                        status = 'completed';
+                        statusLabel = isPaid ? 'مدفوع' : 'مجاني*';
+                        statusClass = isPaid ? 'status-paid' : 'status-free';
+                        icon = '✔️';
+                        itemClass = 'completed';
+                    }
+
+                    roadmapHtml += `
+                        <div class="roadmap-item ${itemClass}">
+                            <div class="roadmap-icon">${icon}</div>
+                            <div class="roadmap-label">فصل ${semIdx}</div>
+                            <div class="roadmap-status ${statusClass}">${statusLabel}</div>
+                        </div>
+                    `;
+                }
+                roadmapContainer.innerHTML = roadmapHtml;
+            }
         }
 
         async function loadSchedule() {
             const container = get('scheduleContent');
+            const examContainer = get('examScheduleContent');
+            const examSection = get('examScheduleSection');
+
+            if (!isEijazServiceActive) {
+                container.innerHTML = '<div class="locked-msg"><span class="locked-icon">⚠️</span><div style="font-weight:bold;">الخدمة غير مفعلة</div><p>يرجى تجديد الخدمة من إدارة المعهد لعرض الجدول الدراسي.</p></div>';
+                examSection.classList.add('hidden');
+                return;
+            }
+
             try {
-                // محاولة جلب البيانات من جدول 'schedules' أو 'schedule' في حال الخطأ 404
-                let response = await supabaseClient.from('schedules').select('*').eq('institute_id', currentStudent.institute_id).eq('semester_index', currentStudent.placement_semester_index || 1).limit(1);
+                const semesterVal = String(currentStudent.placement_semester_index || 1);
+                const specialization = currentStudent.specialization;
+                const instituteId = currentStudent.institute_id;
                 
-                if (response.error && response.status === 404) {
-                    console.warn('⚠️ Table "schedules" not found, trying "schedule"...');
-                    response = await supabaseClient.from('schedule').select('*').eq('institute_id', currentStudent.institute_id).eq('semester_index', currentStudent.placement_semester_index || 1).limit(1);
+                // 1. استعلام جدول الامتحانات أولاً
+                let { data: examData, error: examError } = await supabaseClient
+                    .from('exam_schedule')
+                    .select('*')
+                    .eq('institute_id', instituteId)
+                    .eq('specialization', specialization)
+                    .or(`semester.eq.${semesterVal},semester.eq.الفصل ${semesterVal}`);
+
+                if (examData && examData.length > 0) {
+                    // إذا وجد جدول امتحانات، نقوم بعرضه وإخفاء الجدول الدراسي
+                    examSection.classList.remove('hidden');
+                    container.innerHTML = '<div style="text-align:center; padding: 2rem; background: rgba(245, 158, 11, 0.1); border: 1px dashed var(--warning); border-radius: 12px; color: var(--warning);">' +
+                                         '<i class="fas fa-info-circle"></i> يتم حالياً عرض جدول الامتحانات لنهاية الفصل الدراسي.' +
+                                         '</div>';
+
+                    // ترتيب الامتحانات حسب التاريخ
+                    examData.sort((a, b) => new Date(a.exam_date) - new Date(b.exam_date));
+
+                    examContainer.innerHTML = examData.map(exam => `
+                        <div class="schedule-day-card" style="border-right-color: var(--warning);">
+                            <div class="day-header" style="background: var(--warning); color: #000;">
+                                ${new Date(exam.exam_date).toLocaleDateString('ar-LY', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
+                            </div>
+                            <div class="day-slots">
+                                <div class="slot-item">
+                                    <div class="slot-time">${exam.start_time} - ${exam.end_time}</div>
+                                    <div class="slot-info">
+                                        <div class="slot-subject">${exam.subject}</div>
+                                        <div class="slot-meta">
+                                            <span>📍 القاعة: ${exam.room || '---'}</span>
+                                            <span>📝 النوع: ${exam.exam_type || 'نهائي'}</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    `).join('');
+                    return; // إنهاء الدالة هنا لأن جدول الامتحان ظهر
+                } else {
+                    // إذا لم يوجد جدول امتحانات، نخفي القسم الخاص به
+                    examSection.classList.add('hidden');
                 }
 
-                const { data, error } = response;
-                if (error || !data || !data[0]) { 
-                    console.log('ℹ️ Schedule Info:', error || 'No data found');
+                // 2. استعلام الجدول الدراسي في حال عدم وجود امتحانات
+                let { data, error } = await supabaseClient
+                    .from('class_schedule')
+                    .select('*')
+                    .eq('institute_id', instituteId)
+                    .eq('specialization', specialization)
+                    .or(`semester.eq.${semesterVal},semester.eq.الفصل ${semesterVal}`);
+
+                if (error || !data || data.length === 0) { 
                     container.innerHTML = '<p class="label" style="text-align:center;">الجدول غير متوفر حالياً</p>'; 
                     return; 
                 }
-                const schedule = typeof data[0].json_data === 'string' ? JSON.parse(data[0].json_data) : data[0].json_data;
-                const daysOrder = ['Saturday', 'Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday'];
-                const daysArabic = { 'Saturday': 'السبت', 'Sunday': 'الأحد', 'Monday': 'الاثنين', 'Tuesday': 'الثلاثاء', 'Wednesday': 'الأربعاء', 'Thursday': 'الخميس' };
+
+                const daysArabic = { 
+                    'Saturday': 'السبت', 'Sunday': 'الأحد', 'Monday': 'الاثنين', 
+                    'Tuesday': 'الثلاثاء', 'Wednesday': 'الأربعاء', 'Thursday': 'الخميس',
+                    'السبت': 'السبت', 'الأحد': 'الأحد', 'الاثنين': 'الاثنين', 
+                    'الثلاثاء': 'الثلاثاء', 'الأربعاء': 'الأربعاء', 'الخميس': 'الخميس'
+                };
+                
+                const scheduleByDay = {};
+                data.forEach(item => {
+                    const day = item.day_of_week;
+                    if (!scheduleByDay[day]) scheduleByDay[day] = [];
+                    scheduleByDay[day].push({
+                        time: item.start_time,
+                        subject: item.subject,
+                        room: item.room || '---',
+                        teacher: item.teacher || '---'
+                    });
+                });
+
+                const daysOrder = ['Saturday', 'Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'السبت', 'الأحد', 'الاثنين', 'الثلاثاء', 'الأربعاء', 'الخميس'];
                 let html = '';
+                
+                const addedDays = new Set();
                 daysOrder.forEach(day => {
-                    const slots = schedule.days[day];
-                    if (slots && slots.length > 0) {
-                        html += `<div class="schedule-day-card"><div class="day-header">${daysArabic[day]}</div><div class="day-slots">` +
-                            slots.map(s => `<div class="slot-item"><div class="slot-time">${s.time}</div><div class="slot-info"><div class="slot-subject">${s.subject}</div><div class="slot-meta"><span>📍 ${s.room || '---'}</span><span>👤 ${s.teacher || '---'}</span></div></div></div>`).join('') +
+                    const slots = scheduleByDay[day];
+                    const dayNameAr = daysArabic[day];
+                    if (slots && slots.length > 0 && !addedDays.has(dayNameAr)) {
+                        addedDays.add(dayNameAr);
+                        html += `<div class="schedule-day-card"><div class="day-header">${dayNameAr}</div><div class="day-slots">` +
+                            slots.sort((a, b) => a.time.localeCompare(b.time))
+                                 .map(s => `<div class="slot-item"><div class="slot-time">${s.time}</div><div class="slot-info"><div class="slot-subject">${s.subject}</div><div class="slot-meta"><span>📍 ${s.room}</span><span>👤 ${s.teacher}</span></div></div></div>`).join('') +
                             `</div></div>`;
                     }
                 });
+
                 container.innerHTML = html || '<p class="label" style="text-align:center;">الجدول فارغ</p>';
-            } catch (e) { container.innerHTML = '<p class="label" style="text-align:center;">خطأ في التحميل</p>'; }
+            } catch (e) { 
+                console.error('Schedule Load Error:', e);
+                container.innerHTML = '<p class="label" style="text-align:center;">خطأ في تحميل الجدول</p>'; 
+            }
         }
 
         async function fetchAnnouncements() {
             try {
-                const { data, error } = await supabaseClient.from('announcements').select('*').eq('institute_id', currentStudent.institute_id).order('created_at', { ascending: false });
+                // Fetch both local and global announcements
+                const { data, error } = await supabaseClient
+                    .from('announcements')
+                    .select('*')
+                    .or(`institute_id.eq.${currentStudent.institute_id},institute_id.is.null`)
+                    .order('created_at', { ascending: false });
+                
                 if (error) throw error;
                 allAnnouncements = (data || []).filter(item => {
                     if (item.expires_at && new Date(item.expires_at) < new Date()) return false;
+                    
+                    // Filter by Target Audience for Global Announcements
+                    if (item.institute_id === null) {
+                        const audience = item.target_audience || 'both';
+                        if (audience !== 'students' && audience !== 'both') return false;
+                    }
+
                     const targetSpec = item.target_specialization || 'all';
                     const targetSem = String(item.target_semester || 'all');
                     return (targetSpec === 'all' || targetSpec === currentStudent.specialization) && (targetSem === 'all' || targetSem === String(currentStudent.current_semester || currentStudent.placement_semester_index || '1'));
@@ -1842,17 +2238,47 @@
             const read = JSON.parse(localStorage.getItem(READ_NOTIFS_KEY) || '[]');
             list.innerHTML = allAnnouncements.map((n, i) => {
                 const isRead = read.includes(n.id);
-                return `<div class="notification-card ${isRead ? 'read' : 'unread'}" onclick="showNotifDetails(${i})">
-                    <div class="notification-icon">${n.type === 'exam' ? '📝' : '📘'}</div>
-                    <div class="notification-content"><div class="notification-title">${n.title}${!isRead ? '<span class="unread-dot"></span>' : ''}</div>
-                    <div class="notification-summary">${n.content}</div><span class="notification-date">${formatArabicDate(n.created_at)}</span></div></div>`;
+                let icon = '📘';
+                let typeClass = '';
+                
+                if (n.type === 'exam') {
+                    icon = '📝';
+                    typeClass = 'notif-exam';
+                } else if (n.type === 'administrative') {
+                    icon = '📜';
+                    typeClass = 'notif-admin';
+                } else if (n.type === 'study') {
+                    icon = '📖';
+                    typeClass = 'notif-study';
+                }
+
+                return `<div class="notification-card ${isRead ? 'read' : 'unread'} ${typeClass}" onclick="showNotifDetails(${i})">
+                    <div class="notification-icon">${icon}</div>
+                    <div class="notification-content">
+                        <div class="notification-title">${n.title}${!isRead ? '<span class="unread-dot"></span>' : ''}</div>
+                        <div class="notification-summary">${n.content}</div>
+                        <span class="notification-date">${formatArabicDate(n.created_at)}</span>
+                    </div>
+                </div>`;
             }).join('');
         }
 
         function showNotifDetails(idx) {
             const n = allAnnouncements[idx];
             const read = JSON.parse(localStorage.getItem(READ_NOTIFS_KEY) || '[]');
-            if (!read.includes(n.id)) { read.push(n.id); localStorage.setItem(READ_NOTIFS_KEY, JSON.stringify(read)); updateNotificationBadge(); renderAnnouncements(); }
+            if (!read.includes(n.id)) { 
+                read.push(n.id); 
+                localStorage.setItem(READ_NOTIFS_KEY, JSON.stringify(read)); 
+                updateNotificationBadge(); 
+                renderAnnouncements(); 
+            }
+            
+            let icon = '🔔';
+            if (n.type === 'exam') icon = '📝';
+            else if (n.type === 'administrative') icon = '📜';
+            else if (n.type === 'study') icon = '📖';
+            
+            get('modalIcon').textContent = icon;
             get('modalTitle').textContent = n.title;
             get('modalDate').textContent = 'التاريخ: ' + formatArabicDate(n.created_at);
             get('modalContent').textContent = n.content;
